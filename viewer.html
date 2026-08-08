@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Media Manager</title>
+  <link rel="stylesheet" href="viewer.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>AI Media Manager v2.32.98</h1>
+      <p>Organize, rate, compare, download and build comics from AI media.</p>
+    </div>
+  </header>
+
+  <section class="source-switch">
+    <div class="app-title-inline">
+      <div class="app-title-main">AI Media Manager <span>v2.32.98</span></div>
+      <div class="app-title-sub">media catalogue · organizer · comparison · comic canvas</div>
+    </div>
+    <div class="source-buttons">
+      <button id="sourceChatgpt" class="source-btn active" type="button">ChatGPT</button>
+      <button id="sourceGrok" class="source-btn" type="button">Grok</button>
+      <button id="sourceLocal" class="source-btn" type="button">Local Files</button>
+    </div>
+    <div class="source-help">
+      <button id="openHelp" class="help-button" type="button" aria-haspopup="dialog" aria-controls="helpDialog" title="Open extension help">Help</button>
+    </div>
+  </section>
+
+  <section id="scrollMiniBar" class="scroll-mini-bar" aria-label="Quick controls" hidden>
+    <div class="mini-left">
+      <span id="miniSelected" class="mini-stat">Selected: 0</span>
+      <span id="miniTotal" class="mini-stat">Total: 0</span>
+      <span id="miniMissing" class="mini-stat">Missing: 0</span>
+      <span id="miniDownloaded" class="mini-stat">Downloaded: 0</span>
+      <div class="mini-nav-group" title="Jump">
+        <button id="miniTop" type="button" class="mini-icon-button" title="Go to top">↑</button>
+        <button id="miniBottom" type="button" class="mini-icon-button" title="Go to bottom">↓</button>
+      </div>
+      <div class="mini-scale" title="Grid size">
+        <button id="miniGridMinus" type="button" class="mini-icon-button">−</button>
+        <span id="miniGridLabel">100%</span>
+        <button id="miniGridPlus" type="button" class="mini-icon-button">+</button>
+      </div>
+    </div>
+    <div class="mini-center">
+      <button id="miniCompareSelected" type="button" class="mini-pill-button compare-mini-button" title="Compare selected media">Compare</button>
+    </div>
+    <div class="mini-right">
+      <div class="mini-download-group">
+        <span class="mini-disk" title="Downloads">💾</span>
+        <button id="miniDownloadMissing" type="button" class="mini-pill-button mini-download-button">Missing</button>
+        <button id="miniDownloadAll" type="button" class="mini-pill-button mini-download-button">All</button>
+        <button id="miniDownloadSelected" type="button" class="mini-pill-button mini-download-button">Selected</button>
+      </div>
+      <div class="mini-selection-group">
+        <button id="miniSelectVisible" type="button" class="mini-pill-button">Select visible</button>
+        <button id="miniClearSelection" type="button" class="mini-pill-button">Clear selection</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="localFilesRow" class="local-files-row local-only hidden" aria-label="Local files controls">
+    <span class="row-label">Local Files:</span>
+    <button id="chooseLocalFolder" type="button" class="primary">Choose root</button>
+    <button id="addLocalRoot" type="button" class="mini-button">Add root</button>
+    <label class="local-folder-path-label">Root
+      <select id="localRootSelect" disabled>
+        <option value="">No root selected</option>
+      </select>
+    </label>
+    <label class="local-folder-path-label">Mode
+      <select id="localViewMode">
+        <option value="folder">Folder View</option>
+        <option value="all">All Media</option>
+      </select>
+    </label>
+    <label class="local-folder-path-label local-max-label">Max
+      <input id="localMaxFiles" type="number" min="25" max="100000" step="25" value="3500" />
+    </label>
+    <label id="localFolderPathLabel" class="local-folder-path-label local-folder-fallback">Folder
+      <select id="localFolderPath" disabled>
+        <option value="">Choose root first</option>
+      </select>
+    </label>
+    <button id="refreshLocalFolder" type="button" class="mini-button">Scan</button>
+    <span id="localFolderStatus" class="local-folder-status">No local folder selected</span>
+  </section>
+
+  <section class="settings main-settings source-network-only">
+    <span class="row-label folder-options-label">Folder options:</span>
+    <label>Folder <input id="folder" type="text" /></label>
+    <label>Archive folder <input id="archiveFolder" type="text" /></label>
+    <label>ZIP Size <span class="input-suffix-wrap"><input id="zipPartMb" type="number" min="100" max="3500" step="100" /><span class="suffix">MB</span></span></label>
+    <label>Folder structure
+      <select id="folderStructure">
+        <option value="flat">Main folder</option>
+        <option value="date">By date</option>
+        <option id="folderStructureChatOption" value="chat">By chat</option>
+      </select>
+    </label>
+    <label class="check-setting"><input id="chooseFolderOnce" type="checkbox" /> Choose folder once</label>
+    <button id="openOutputDir" type="button" class="mini-button">Browse</button>
+    <label id="maxImagesFolder" class="max-images-folder">Max images <input id="maxImages" type="number" min="25" max="100000" step="25" /></label>
+
+  <div id="progress" class="progress" hidden>
+    <div class="progress-title" id="progressTitle"></div>
+    <progress id="progressBar" max="100" value="0"></progress>
+    <button id="cancelProgress" class="cancel-button">Cancel</button>
+    <div class="progress-log" id="progressLog"></div>
+  </div>
+  </section>
+
+  <section class="actions-row">
+    <div class="actions-center">
+      <button id="openImages">Open source</button>
+      <button id="sync" class="primary">Connect</button>
+      <button id="connectImagen" class="primary grok-action" type="button">Connect Imagen</button>
+      <button id="connectBoards" class="primary grok-action" type="button">Connect Boards</button>
+      <span class="action-spacer" aria-hidden="true"></span>
+      <button id="downloadZip" class="success">Download missing as ZIP(s)</button>
+      <button id="downloadAllZip" class="success secondary-success">Download all as ZIP(s)</button>
+      <button id="downloadSelectedZip" type="button" class="success selection-action">Download selected as ZIP(s)</button>
+    </div>
+    <button id="clear" class="small-danger clear-top">Clear cache</button>
+  </section>
+
+
+  <section class="filter-row">
+    <span class="row-label filters-row-label">Filters:</span>
+    <div class="filters-left">
+      <button data-filter="all" class="active">All</button>
+      <button data-filter="missing">Missing</button>
+      <button data-filter="downloaded">Downloaded</button>
+      <button data-filter="failed">Failed</button>
+      <button id="validateVisible">Validate visible</button>
+      <button id="resetFilters" type="button" class="mini-button reset-filters" title="Clear search and return to Main View / All status.">Reset view</button>
+    </div>
+    <label class="search-box">Search <input id="search" type="search" placeholder="prompt / date / URL / status / collection" /></label>
+  </section>
+
+  <section class="collection-row" aria-label="Collection controls">
+    <span class="row-label collections-row-label">Collections:</span>
+    <label>Filter
+      <select id="collectionFilter">
+        <option value="all">All collections</option>
+        <option value="unassigned">Unassigned</option>
+      </select>
+    </label>
+    <button id="newCollection" type="button" class="mini-button">New</button>
+    <button id="renameCollection" type="button" class="mini-button">Rename</button>
+    <button id="hideCollectionMain" type="button" class="mini-button">Hide from Main</button>
+    <button id="deleteCollection" type="button" class="mini-button danger-soft">Delete</button>
+    <span class="collection-divider" aria-hidden="true"></span>
+    <label>Target
+      <select id="collectionTarget">
+        <option value="">Choose collection</option>
+      </select>
+    </label>
+    <button id="addSelectedToCollection" type="button" class="mini-button">Add selected</button>
+    <button id="removeSelectedFromCollection" type="button" class="mini-button">Remove selected</button>
+  </section>
+
+  <section class="viewbar">
+    <span class="view-label">View:</span>
+    <label>Mode
+      <select id="viewMode">
+        <option value="grid">Grid</option>
+        <option value="list">List</option>
+      </select>
+    </label>
+    <label>Scroll
+      <select id="pageMode">
+        <option value="infinite">Infinite</option>
+        <option value="pages">Pages</option>
+      </select>
+    </label>
+    <label id="pageSizeLabel">Count
+      <select id="pageSize">
+        <option value="25">25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="200">200</option>
+        <option value="300">300</option>
+        <option value="400">400</option>
+        <option value="500">500</option>
+      </select>
+    </label>
+    <div id="gridScaleControls" class="grid-scale-controls" title="Grid size">
+      <span class="grid-scale-title">Grid size</span>
+      <button id="gridScaleMinus" type="button" class="mini-button">−</button>
+      <span id="gridScaleLabel">100%</span>
+      <button id="gridScalePlus" type="button" class="mini-button">+</button>
+    </div>
+    <label id="sortLabel">Sort
+      <select id="sort">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="prompt">Prompt A-Z</option>
+        <option value="status">Status</option>
+        <option value="rating-desc">Rating high → low</option>
+        <option value="rating-asc">Rating low → high</option>
+      </select>
+    </label>
+    <label id="grokModeLabel" class="grok-only">Grok mode
+      <select id="grokMode">
+        <option value="imagen">Imagen</option>
+        <option value="boards">Boards</option>
+        <option value="both">Imagen + Boards</option>
+      </select>
+    </label>
+    <label id="grokMediaLabel" class="grok-only">Media
+      <select id="grokMedia">
+        <option value="both">Images + videos</option>
+        <option value="images">Images only</option>
+        <option value="videos">Videos only</option>
+      </select>
+    </label>
+    <label id="grokVideoThumbsLabel" class="grok-only check-setting video-thumbs-setting"><input id="grokVideoThumbs" type="checkbox" /> Boards video thumbnails (laggy)</label>
+    <div id="pageControls" class="page-controls" hidden>
+      <button id="firstPage">First</button>
+      <button id="prevPage">Prev</button>
+      <span id="pageInfo"></span>
+      <button id="nextPage">Next</button>
+      <button id="lastPage">Last</button>
+    </div>
+  </section>
+
+  <section id="selectionBar" class="selection-bar" aria-label="Selection controls">
+    <div class="selection-bar-left">
+      <span id="selectionCount" class="selection-count">Selected: 0</span>
+      <div id="statsMetrics" class="stats-metrics selection-stats"></div>
+    </div>
+    <div class="selection-bar-center">
+      <button id="compareSelected" type="button" class="selection-action slim compare-action" title="Compare selected media">Compare</button>
+    </div>
+    <div class="selection-bar-actions selection-bar-right">
+      <button id="selectVisible" type="button" class="selection-action slim">Select visible</button>
+      <button id="clearSelection" type="button" class="selection-action slim">Clear selection</button>
+    </div>
+  </section>
+
+  <section id="localFolderBar" class="local-folder-bar local-only hidden" aria-label="Local folder navigation">
+    <button id="localFolderPin" type="button" class="mini-button local-pin-button">Pin</button>
+    <div id="localBreadcrumb" class="local-breadcrumb"><span class="local-breadcrumb-empty">Choose root first</span></div>
+    <div id="localFolderTiles" class="local-folder-tiles"></div>
+  </section>
+
+  <section id="storyboardRow" class="storyboard-row storyboard-ui-hidden" aria-label="Storyboard controls" aria-hidden="true">
+    <span class="row-label storyboard-row-label">Storyboard:</span>
+    <label>Board
+      <select id="storyboardSelect">
+        <option value="">No storyboard</option>
+      </select>
+    </label>
+    <button id="newStoryboard" type="button" class="mini-button">New</button>
+    <button id="toggleStoryboardView" type="button" class="mini-button">View board</button>
+    <button id="addSelectedToStoryboard" type="button" class="mini-button">Add selected</button>
+    <button id="removeSelectedFromStoryboard" type="button" class="mini-button">Remove selected</button>
+    <button id="moveStoryboardUp" type="button" class="mini-button">Move ↑</button>
+    <button id="moveStoryboardDown" type="button" class="mini-button">Move ↓</button>
+    <button id="exportStoryboard" type="button" class="mini-button">Export JSON</button>
+    <span id="storyboardStatus" class="row-hint">Create a storyboard to order panels.</span>
+  </section>
+
+  <section id="canvasRow" class="canvas-row" aria-label="Comic canvas controls">
+    <span class="row-label canvas-row-label">Canvas:</span>
+    <label>Page
+      <select id="canvasSelect">
+        <option value="">No canvas</option>
+      </select>
+    </label>
+    <button id="newCanvas" type="button" class="mini-button">New canvas</button>
+    <button id="toggleCanvasView" type="button" class="mini-button">Open canvas</button>
+    <button id="addSelectedToCanvas" type="button" class="mini-button">Add selected</button>
+    <button id="addStoryboardToCanvas" type="button" class="mini-button">Add storyboard</button>
+    <button id="addCanvasBubble" type="button" class="mini-button">Add bubble</button>
+    <button id="canvasFitPanel" type="button" class="mini-button">Fit</button>
+    <button id="canvasFillPanel" type="button" class="mini-button">Fill</button>
+    <button id="canvasBringFront" type="button" class="mini-button">Front</button>
+    <button id="canvasSendBack" type="button" class="mini-button">Back</button>
+    <button id="canvasDeletePanel" type="button" class="mini-button danger-soft">Remove panel</button>
+    <button id="exportCanvas" type="button" class="mini-button">Export JSON</button>
+    <span id="canvasStatus" class="row-hint">Create a canvas to arrange comic panels.</span>
+  </section>
+
+  <section id="canvasWorkspace" class="canvas-workspace" hidden aria-label="Comic canvas workspace">
+    <div class="canvas-help">Drag panels/bubbles to move. Drag on empty canvas to box-select. Ctrl+click adds/removes panels, bubbles, or panel shape points. Select two corner points and drag one to move both. Shift-drag a Fill panel pans crop; Shift-wheel zooms crop.</div>
+      <div id="canvasCropHint" class="canvas-crop-hint" hidden>Crop adjust: Shift-drag pans · Shift-wheel zooms</div>
+    <div class="canvas-page-shell">
+      <div id="comicCanvas" class="comic-canvas" tabindex="0"></div>
+      <button id="canvasWorkMarksToggle" type="button" class="mini-button canvas-workmarks-toggle" title="Hide/show canvas handles and selection outlines">Hide guides</button>
+      <aside id="canvasBubbleSideControls" class="canvas-bubble-side-controls canvas-floating-side" hidden aria-label="Bubble tail controls">
+        <div class="canvas-side-title">Bubble controls</div>
+        <button id="bubbleTypeButton" type="button" class="mini-button bubble-type-button">Tail type: Speech</button>
+        <button id="bubbleShapeButton" type="button" class="mini-button bubble-type-button">Bubble: Oval</button>
+        <div class="bubble-secondary-actions">
+          <button id="bubbleAddSecondary" type="button" class="mini-button bubble-join-button">Secondary: OFF</button>
+          <button id="bubbleEditSecondary" type="button" class="mini-button bubble-join-button">Edit secondary text</button>
+        </div>
+        <details id="bubbleBurstControls" class="canvas-control-rollout" hidden open>
+          <summary>Burst / Gear shape</summary>
+          <label id="bubbleBurstSpikeCountControl" class="bubble-burst-shape-control">Point count <input id="bubbleBurstSpikeCountValue" class="bubble-tail-number" type="number" min="5" max="24" step="1" value="8" />
+            <input id="bubbleBurstSpikeCountSlider" type="range" min="5" max="24" step="1" value="8" />
+          </label>
+          <label id="bubbleBurstJaggedControl" class="bubble-tail-toggle-row bubble-burst-shape-control"><span>Jagged / no Bezier</span><input id="bubbleBurstJaggedToggle" type="checkbox" /></label>
+          <label class="bubble-burst-shape-control">High point offset <input id="bubbleBurstPeakOffsetValue" class="bubble-tail-number" type="number" min="-0.25" max="0.25" step="0.01" value="0" />
+            <input id="bubbleBurstPeakOffsetSlider" type="range" min="-0.25" max="0.25" step="0.01" value="0" />
+          </label>
+          <label class="bubble-burst-shape-control">Low point offset <input id="bubbleBurstValleyOffsetValue" class="bubble-tail-number" type="number" min="-0.25" max="0.25" step="0.01" value="0" />
+            <input id="bubbleBurstValleyOffsetSlider" type="range" min="-0.25" max="0.25" step="0.01" value="0" />
+          </label>
+          <label class="bubble-burst-shape-control">Randomness <input id="bubbleBurstRandomnessValue" class="bubble-tail-number" type="number" min="0" max="1" step="0.01" value="0" />
+            <input id="bubbleBurstRandomnessSlider" type="range" min="0" max="1" step="0.01" value="0" />
+          </label>
+          <label id="bubbleBurstHeightRandomnessControl" class="bubble-burst-shape-control">Height randomness <input id="bubbleBurstHeightRandomnessValue" class="bubble-tail-number" type="number" min="0" max="1" step="0.01" value="0" />
+            <input id="bubbleBurstHeightRandomnessSlider" type="range" min="0" max="1" step="0.01" value="0" />
+          </label>
+          <button id="bubbleBurstRandomizeButton" type="button" class="mini-button bubble-tail-toggle-button">Randomize burst/gear</button>
+        </details>
+        <details id="bubbleCloudControls" class="canvas-control-rollout" hidden open>
+          <summary>Cloud shape</summary>
+          <label class="bubble-burst-shape-control">Circle count <input id="bubbleCloudCircleCountValue" class="bubble-tail-number" type="number" min="6" max="22" step="1" value="12" />
+            <input id="bubbleCloudCircleCountSlider" type="range" min="6" max="22" step="1" value="12" />
+          </label>
+          <label class="bubble-burst-shape-control">Circle size <input id="bubbleCloudCircleSizeValue" class="bubble-tail-number" type="number" min="0.5" max="1.8" step="0.01" value="1" />
+            <input id="bubbleCloudCircleSizeSlider" type="range" min="0.5" max="1.8" step="0.01" value="1" />
+          </label>
+          <label class="bubble-burst-shape-control">Randomness <input id="bubbleCloudRandomnessValue" class="bubble-tail-number" type="number" min="0" max="1" step="0.01" value="0" />
+            <input id="bubbleCloudRandomnessSlider" type="range" min="0" max="1" step="0.01" value="0" />
+          </label>
+          <label class="bubble-burst-shape-control">Randomness 2 <input id="bubbleCloudRandomness2Value" class="bubble-tail-number" type="number" min="0" max="1" step="0.01" value="0" />
+            <input id="bubbleCloudRandomness2Slider" type="range" min="0" max="1" step="0.01" value="0" />
+          </label>
+          <button id="bubbleCloudRandomizeButton" type="button" class="mini-button bubble-tail-toggle-button">Randomize cloud</button>
+        </details>
+        <details class="canvas-control-rollout" open>
+          <summary>Stroke</summary>
+          <label class="bubble-stroke-control">Stroke width <input id="bubbleTailOuterValue" class="bubble-tail-number" type="number" min="0.1" max="5" step="0.1" value="2" />
+            <input id="bubbleTailOuterSlider" type="range" min="0.1" max="5" step="0.1" value="2" />
+          </label>
+        </details>
+        <details class="canvas-control-rollout tail-path-rollout" open>
+          <summary>Tail path</summary>
+        <button id="bubbleTailPathModeButton" type="button" class="mini-button bubble-tail-toggle-button tail-path-control">Tail path: Straight</button>
+        <label id="bubbleTailJaggedCountControl" class="speech-tail-shape-control tail-jagged-control">Jagged points <input id="bubbleTailJaggedCountValue" class="bubble-tail-number" type="number" min="2" max="4" step="1" value="4" />
+          <input id="bubbleTailJaggedCountSlider" type="range" min="2" max="4" step="1" value="4" />
+        </label>
+        <label id="bubbleTailJaggedLengthOffsetControl" class="speech-tail-shape-control tail-jagged-control">Spacing <input id="bubbleTailJaggedLengthOffsetValue" class="bubble-tail-number" type="number" min="-24" max="24" step="0.5" value="0" />
+          <input id="bubbleTailJaggedLengthOffsetSlider" type="range" min="-24" max="24" step="0.5" value="0" />
+        </label>
+        <label id="bubbleTailJaggedWidthOffsetControl" class="speech-tail-shape-control tail-jagged-control">Width offset <input id="bubbleTailJaggedWidthOffsetValue" class="bubble-tail-number" type="number" min="0" max="30" step="0.5" value="11" />
+          <input id="bubbleTailJaggedWidthOffsetSlider" type="range" min="0" max="30" step="0.5" value="11" />
+        </label>
+        <label id="bubbleTailJaggedSpacingControl" class="speech-tail-shape-control tail-jagged-control">Length offset <input id="bubbleTailJaggedSpacingValue" class="bubble-tail-number" type="number" min="0.5" max="1.8" step="0.05" value="1" />
+          <input id="bubbleTailJaggedSpacingSlider" type="range" min="0.5" max="1.8" step="0.05" value="1" />
+        </label>
+        <label class="bubble-tail-toggle-row tail-path-control tail-curve-control"><span>Curve relative</span><input id="bubbleTailRelativeToggle" type="checkbox" checked /></label>
+        <button id="bubbleTailCurveModeButton" type="button" class="mini-button bubble-tail-toggle-button tail-path-control">Curve mode: Normal</button>
+        <label class="bubble-tail-toggle-row tail-path-control"><span>Custom base handle</span><input id="bubbleTailBaseCustomToggle" type="checkbox" /></label>
+        <button id="bubbleTailBaseRelativeButton" type="button" class="mini-button bubble-tail-toggle-button tail-path-control active">Base relative position: ON</button>
+        <label class="speech-tail-shape-control speech-tail-hide-in-thought">Base width <input id="bubbleTailBaseValue" class="bubble-tail-number" type="number" min="4" max="28" step="0.5" value="13" />
+          <input id="bubbleTailBaseSlider" type="range" min="4" max="28" step="0.5" value="13" />
+        </label>
+        <label class="speech-tail-shape-control speech-tail-hide-in-thought">Base position <input id="bubbleTailBasePositionValue" class="bubble-tail-number" type="number" min="-30" max="30" step="0.5" value="0" />
+          <input id="bubbleTailBasePositionSlider" type="range" min="-30" max="30" step="0.5" value="0" />
+        </label>
+        <label class="speech-tail-shape-control speech-tail-hide-in-thought">Anchor offset <input id="bubbleTailOffsetValue" class="bubble-tail-number" type="number" min="-12" max="12" step="0.2" value="0" />
+          <input id="bubbleTailOffsetSlider" type="range" min="-12" max="12" step="0.2" value="0" />
+        </label>
+        </details>
+        <details id="bubbleThoughtControls" class="bubble-thought-controls canvas-control-rollout" hidden open>
+          <summary>Thought tail</summary>
+          <label class="bubble-thought-check bubble-secondary-thought-boolean-row"><input id="bubbleSecondaryThoughtBooleanToggle" type="checkbox" /> Bubbles merge</label>
+          <div class="bubble-tail-meta">Active bubbles: <span id="bubbleThoughtCount">5</span></div>
+          <label>Count <input id="bubbleThoughtCountValue" class="bubble-tail-number" type="number" min="3" max="8" step="1" value="5" />
+            <input id="bubbleThoughtCountSlider" type="range" min="3" max="8" step="1" value="5" />
+          </label>
+          <label>Spacing <input id="bubbleThoughtSpacingValue" class="bubble-tail-number" type="number" min="0.6" max="2.2" step="0.1" value="1" />
+            <input id="bubbleThoughtSpacingSlider" type="range" min="0.6" max="2.2" step="0.1" value="1" />
+          </label>
+          <label>Size falloff <input id="bubbleThoughtFalloffValue" class="bubble-tail-number" type="number" min="0.4" max="2.5" step="0.05" value="1.15" />
+            <input id="bubbleThoughtFalloffSlider" type="range" min="0.4" max="2.5" step="0.05" value="1.15" />
+          </label>
+          <label>Base dot size <input id="bubbleThoughtBaseSizeValue" class="bubble-tail-number" type="number" min="0.45" max="2.2" step="0.05" value="1" />
+            <input id="bubbleThoughtBaseSizeSlider" type="range" min="0.45" max="2.2" step="0.05" value="1" />
+          </label>
+          <label>Base offset <input id="bubbleThoughtBaseOffsetValue" class="bubble-tail-number" type="number" min="-24" max="24" step="0.5" value="0" />
+            <input id="bubbleThoughtBaseOffsetSlider" type="range" min="-24" max="24" step="0.5" value="0" />
+          </label>
+          <label>Orientation <input id="bubbleThoughtAngleValue" class="bubble-tail-number" type="number" min="-90" max="90" step="1" value="0" />
+            <input id="bubbleThoughtAngleSlider" type="range" min="-90" max="90" step="1" value="0" />
+          </label>
+          <label class="bubble-thought-check"><input id="bubbleThoughtHorizontalToggle" type="checkbox" checked /> Always horizontal</label>
+          <label>Dot width X <input id="bubbleThoughtScaleXValue" class="bubble-tail-number" type="number" min="0.5" max="1.8" step="0.1" value="1" />
+            <input id="bubbleThoughtScaleXSlider" type="range" min="0.5" max="1.8" step="0.1" value="1" />
+          </label>
+          <label>Dot height Y <input id="bubbleThoughtScaleYValue" class="bubble-tail-number" type="number" min="0.5" max="1.8" step="0.1" value="1" />
+            <input id="bubbleThoughtScaleYSlider" type="range" min="0.5" max="1.8" step="0.1" value="1" />
+          </label>
+        </details>
+        <details id="bubbleSecondaryBridgeControls" class="bubble-secondary-bridge-controls canvas-control-rollout" hidden open>
+          <summary>Bridge</summary>
+          <label class="bubble-tail-toggle-row"><span>Bridge</span><input id="bubbleSecondaryBridgeToggle" type="checkbox" /></label>
+          <label class="bubble-tail-toggle-row"><span>Boolean merge</span><input id="bubbleSecondaryBooleanToggle" type="checkbox" /></label>
+          <label>Bridge base main <input id="bubbleSecondaryBridgeBaseAValue" class="bubble-tail-number" type="number" min="3" max="42" step="0.5" value="12" />
+            <input id="bubbleSecondaryBridgeBaseASlider" type="range" min="3" max="42" step="0.5" value="12" />
+          </label>
+          <label>Bridge base secondary <input id="bubbleSecondaryBridgeBaseBValue" class="bubble-tail-number" type="number" min="3" max="42" step="0.5" value="12" />
+            <input id="bubbleSecondaryBridgeBaseBSlider" type="range" min="3" max="42" step="0.5" value="12" />
+          </label>
+          <label>Bridge curve <input id="bubbleSecondaryBridgeCurveValue" class="bubble-tail-number" type="number" min="-9" max="42" step="0.5" value="0" />
+            <input id="bubbleSecondaryBridgeCurveSlider" type="range" min="-9" max="42" step="0.5" value="0" />
+          </label>
+        </details>
+        <button id="bubbleTailResetControls" type="button" class="mini-button">Reset tail style</button>
+      </div>
+
+        <div class="canvas-side-hint">Adjust selected speech bubble. Drag blue dot to aim.</div>
+      </aside>
+      <aside id="canvasPanelSideControls" class="canvas-bubble-side-controls canvas-panel-side-controls canvas-floating-side" hidden aria-label="Panel border controls">
+        <div class="canvas-side-title">Panel border</div>
+        <label>Stroke width <input id="canvasPanelStrokeValue" class="bubble-tail-number" type="number" min="0" max="12" step="1" value="0" />
+          <input id="canvasPanelStrokeSlider" type="range" min="0" max="12" step="1" value="0" />
+        </label>
+        <label class="bubble-tail-toggle-row canvas-panel-sides-toggle"><span>Separate sides</span><input id="canvasPanelStrokeSeparateToggle" type="checkbox" /></label>
+        <div id="canvasPanelStrokeSides" class="canvas-panel-stroke-sides" hidden>
+          <label>Top <input id="canvasPanelStrokeTopValue" class="bubble-tail-number" type="number" min="0" max="12" step="1" value="0" />
+            <input id="canvasPanelStrokeTopSlider" type="range" min="0" max="12" step="1" value="0" />
+          </label>
+          <label>Right <input id="canvasPanelStrokeRightValue" class="bubble-tail-number" type="number" min="0" max="12" step="1" value="0" />
+            <input id="canvasPanelStrokeRightSlider" type="range" min="0" max="12" step="1" value="0" />
+          </label>
+          <label>Bottom <input id="canvasPanelStrokeBottomValue" class="bubble-tail-number" type="number" min="0" max="12" step="1" value="0" />
+            <input id="canvasPanelStrokeBottomSlider" type="range" min="0" max="12" step="1" value="0" />
+          </label>
+          <label>Left <input id="canvasPanelStrokeLeftValue" class="bubble-tail-number" type="number" min="0" max="12" step="1" value="0" />
+            <input id="canvasPanelStrokeLeftSlider" type="range" min="0" max="12" step="1" value="0" />
+          </label>
+        </div>
+        <label>Stroke color
+          <select id="canvasPanelStrokeColor" class="bubble-tail-select">
+            <option value="#000000">Black</option>
+            <option value="#ffffff">White</option>
+            <option value="#facc15">Yellow</option>
+            <option value="#ef4444">Red</option>
+          </select>
+        </label>
+        <label class="bubble-tail-toggle-row canvas-panel-shape-toggle"><span>Shape corners</span><input id="canvasPanelShapeToggle" type="checkbox" /></label>
+        <div id="canvasPanelShapeControls" class="canvas-panel-shape-controls" hidden>
+          <button id="canvasPanelShapeReset" type="button" class="mini-button">Reset shape</button>
+          <div class="canvas-side-hint">Drag the four corner points on the panel to make trapezoid / diagonal wall shapes.</div>
+        </div>
+        <button id="canvasPanelStrokeReset" type="button" class="mini-button">Reset border</button>
+        <div class="canvas-side-hint">Adjust selected image panel border and optional corner shape without moving the canvas.</div>
+      </aside>
+    </div>
+  </section>
+
+  <main id="grid" class="grid view-grid size-medium"></main>
+
+  <section id="thumbnailExperimentRow" class="thumbnail-experiment-row" aria-label="Thumbnail cache experiments">
+    <span class="row-label">Thumbnail test:</span>
+    <label class="check-setting"><input id="thumbnailCache" type="checkbox" checked /> Use cached thumbnails</label>
+    <label class="check-setting"><input id="thumbnailCacheAutoBuild" type="checkbox" checked /> Build missing when visible</label>
+    <label>Quality
+      <select id="thumbnailCacheQuality">
+        <option value="low">Low</option>
+        <option value="medium" selected>Medium</option>
+        <option value="high">High</option>
+      </select>
+    </label>
+    <label class="check-setting debug-setting"><input id="thumbnailCacheFullGrid" type="checkbox" /> Debug: full images in grid</label>
+    <button id="rebuildVisibleThumbs" type="button" class="mini-button">Refresh visible thumbs</button>
+    <button id="clearThumbnailCache" type="button" class="mini-button danger-soft">Clear thumb cache</button>
+  </section>
+
+  <section id="organizerBackupRow" class="thumbnail-experiment-row organizer-backup-row" aria-label="Organizer data backup">
+    <span class="row-label">Organizer data:</span>
+    <button id="exportOrganizerData" type="button" class="mini-button">Export collections/ratings</button>
+    <button id="importOrganizerData" type="button" class="mini-button">Import collections/ratings</button>
+    <input id="importOrganizerFile" type="file" accept="application/json,.json" hidden />
+    <button id="clearMediaStateOnly" type="button" class="mini-button danger-soft">Clear media catalogue only</button>
+    <span class="row-hint">Keeps collections, ratings and settings. Media/thumb cache is separate.</span>
+  </section>
+
+  <div id="pageControlsBottom" class="bottom-page-controls page-controls" hidden>
+    <button id="firstPageBottom">First</button>
+    <button id="prevPageBottom">Prev</button>
+    <span id="pageInfoBottom"></span>
+    <button id="nextPageBottom">Next</button>
+    <button id="lastPageBottom">Last</button>
+  </div>
+
+  <aside id="events" class="events"></aside>
+
+  <div id="lightbox" class="lightbox" hidden>
+    <div class="lightbox-shell">
+      <button id="prevItem" class="nav prev" type="button" aria-label="Previous"><span aria-hidden="true">‹</span></button>
+      <div class="lightbox-card">
+        <button id="closeLightbox" class="close" type="button" aria-label="Close"><span aria-hidden="true">×</span></button>
+        <div class="lightbox-preview-wrap">
+          <img id="lightboxImg" alt="" />
+          <video id="lightboxVideo" muted controls playsinline preload="metadata" hidden></video>
+          <div id="lightboxPlaceholder" class="video-na lightbox-na" hidden>
+            <div class="video-icon">▶</div>
+            <div>Preview Off</div>
+          </div>
+          <img id="lightboxCheck" class="download-check lightbox-check" src="Eo_circle_green_checkmark.svg" alt="downloaded" hidden />
+        </div>
+        <div class="lightbox-meta">
+          <div id="lightboxBadges" class="lightbox-badges"></div>
+          <div id="lightboxRatingPanel" class="lightbox-rating-panel is-unrated">
+            <div class="lightbox-rating-head"><span>Rating</span><strong id="lightboxRatingValue">Unrated</strong></div>
+            <input id="lightboxRatingSlider" type="range" min="1" max="5" step="0.1" value="1" />
+            <div class="lightbox-rating-scale"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+            <button id="clearLightboxRating" type="button" class="mini-button" disabled>Clear rating</button>
+          </div>
+          <div id="lightboxCollections" class="lightbox-collections"></div>
+          <div id="lightboxPrompt"></div>
+          <div id="lightboxDate"></div>
+          <div class="lightbox-actions">
+            <button id="downloadOne" class="primary">Download this media</button>
+            <button id="copyUrl">Copy URL</button>
+          </div>
+        </div>
+      </div>
+      <button id="nextItem" class="nav next" type="button" aria-label="Next"><span aria-hidden="true">›</span></button>
+    </div>
+  </div>
+
+
+
+  <div id="compareModal" class="compare-modal" hidden>
+    <div class="compare-shell" role="dialog" aria-label="Compare selected media">
+      <button id="closeCompare" class="compare-close" type="button" aria-label="Close compare"><span aria-hidden="true">×</span></button>
+      <aside class="compare-rail compare-rail-left" aria-label="Choose A item">
+        <div class="compare-rail-title">A</div>
+        <div id="compareRailA" class="compare-rail-list"></div>
+      </aside>
+      <section class="compare-main">
+        <div class="compare-toolbar">
+          <div class="compare-tool-group">
+            <button id="compareModeSide" type="button" class="compare-tool active">Side by side</button>
+            <button id="compareModeReveal" type="button" class="compare-tool">Reveal</button>
+            <button id="compareSwap" type="button" class="compare-tool">Swap</button>
+          </div>
+          <span id="compareCount" class="compare-count"></span>
+        </div>
+        <div id="compareStage" class="compare-stage"></div>
+      </section>
+      <aside class="compare-rail compare-rail-right" aria-label="Choose B item">
+        <div class="compare-rail-title">B</div>
+        <div id="compareRailB" class="compare-rail-list"></div>
+      </aside>
+    </div>
+  </div>
+
+
+  <dialog id="helpDialog" class="help-dialog" aria-labelledby="helpTitle">
+    <div class="help-dialog-shell">
+      <div class="help-dialog-header">
+        <div>
+          <h2 id="helpTitle">AI Media Manager Help</h2>
+          <p>A practical guide for organizing AI images and videos without technical setup.</p>
+        </div>
+        <button id="closeHelp" class="help-close" type="button" aria-label="Close help">×</button>
+      </div>
+
+      <nav class="help-tabs" aria-label="Help topics">
+        <button class="help-tab active" type="button" data-help-tab="manager">Media Manager</button>
+        <button class="help-tab" type="button" data-help-tab="comic">Comic Canvas</button>
+        <button class="help-tab" type="button" data-help-tab="privacy">Privacy &amp; Data</button>
+      </nav>
+
+      <div class="help-dialog-body">
+        <div class="help-panel" data-help-panel="manager">
+          <section class="help-section help-quick-start">
+            <h3>Quick start</h3>
+            <ol class="help-steps">
+              <li>Choose <strong>ChatGPT</strong>, <strong>Grok</strong> or <strong>Local Files</strong> at the top.</li>
+              <li>For ChatGPT or Grok, make sure you are signed in to the normal website in Chrome.</li>
+              <li>Click <strong>Connect</strong>. The catalogue is created or updated from that source.</li>
+              <li>To check for newly generated media later, simply click <strong>Connect again</strong>. Connect is the refresh; there is no separate catalogue Refresh button.</li>
+            </ol>
+            <p class="help-note"><strong>Grok:</strong> if a Grok tab is already open, AI Media Manager reuses it. If there is no Grok tab, it can open <strong>grok.com/imagine/saved</strong> for the signed-in page connection.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Sources</h3>
+            <p><strong>ChatGPT</strong> builds a catalogue from your ChatGPT image history. <strong>Grok</strong> reads your Imagine history from the signed-in Grok web session, including generated image/video metadata such as prompts, dates and available thumbnails. <strong>Local Files</strong> indexes folders you choose on your computer.</p>
+            <p><strong>Open source</strong> opens or focuses the source website. It is useful if you need to sign in or want to inspect the original media.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Selecting media</h3>
+            <p>Selection is the basis for bulk actions. Click the small selection control on a card, or Ctrl/Cmd-click a card, to add or remove it from the current selection. <strong>Select visible</strong> selects the cards currently shown by your filters; <strong>Clear selection</strong> clears the working selection.</p>
+            <p>Once items are selected you can download only those items, place them in a collection, compare them, or add them to Comic Canvas.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Filters, search and sorting</h3>
+            <p><strong>All / Missing / Downloaded / Failed</strong> filter the catalogue by local download status. Search matches prompts, dates, URLs, statuses and collection names. <strong>Reset view</strong> clears the search and returns to the normal main view.</p>
+            <p>The <strong>Sort</strong> menu can order by newest/oldest date, prompt, status, or your personal rating. Grid/List, Infinite/Pages and Grid size only change how the catalogue is displayed; they do not change the media itself.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Collections — your custom categories</h3>
+            <p>Collections are custom categories such as <em>Characters</em>, <em>Favorites</em>, <em>Project A</em>, <em>Needs edit</em> or anything else you want. A media item can belong to more than one collection.</p>
+            <ol class="help-steps compact">
+              <li>Click <strong>New</strong> to create a collection.</li>
+              <li>Select one or more media cards.</li>
+              <li>Choose the destination under <strong>Target</strong>, then click <strong>Add selected</strong>.</li>
+              <li>Use the <strong>Filter</strong> dropdown to view one collection, all collections or unassigned media.</li>
+            </ol>
+            <p><strong>Rename</strong> changes the collection name. <strong>Hide from Main</strong> keeps the collection and its assignments but removes those items from the normal Main View. <strong>Delete</strong> deletes the collection assignment structure, not the original media on ChatGPT, Grok or your disk.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Rating / ranking</h3>
+            <p>Open a media card to see the larger preview and the <strong>Rating</strong> slider. Ratings run from 1 to 5 and are your private organizer score; they do not rate or modify the source post. Ratings are also available inside Compare.</p>
+            <p>Use <strong>Rating high → low</strong> in Sort to turn the catalogue into a ranked shortlist. <strong>Clear rating</strong> returns an item to Unrated.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Compare</h3>
+            <p>Select at least two items and click <strong>Compare</strong>. The left and right rails choose which selected items are A and B. <strong>Side by side</strong> works with images and videos; <strong>Reveal</strong> gives a draggable before/after split when both A and B are still images. <strong>Swap</strong> exchanges A and B.</p>
+            <p>You can rate items while comparing them, which is useful for choosing the best generation from a larger batch.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Downloads and status</h3>
+            <p><strong>Download missing</strong> downloads catalogue items that are not already marked as downloaded. <strong>Download all</strong> ignores that status. <strong>Download selected</strong> downloads only your selection. ZIP Size controls the maximum part size when a large download is split into multiple ZIP files.</p>
+            <p>Folder options control the download folder and optional date/chat structure. Download status is organizer metadata inside the extension; it does not alter the source service.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Local Files</h3>
+            <p>Choose a root folder, optionally add more roots, then use <strong>Scan</strong> when the folder contents change. Folder View browses the folder structure; All Media flattens the indexed results into one catalogue. Local file indexing does not require uploading the selected files to ChatGPT or Grok.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Organizer backup and clearing data</h3>
+            <p><strong>Export collections/ratings</strong> creates a JSON backup of organizer data such as collections, ratings, storyboards and canvases. <strong>Import</strong> restores that organizer backup.</p>
+            <p><strong>Clear media catalogue only</strong> removes media catalogue/status data but keeps collections, ratings, settings and thumbnail cache so you can reconnect afterwards. The red <strong>Clear cache</strong> button is a stronger reset: it clears catalogue data <em>and</em> organizer data such as collections, ratings, storyboards and canvases. Neither button deletes the original files from ChatGPT, Grok or your computer.</p>
+          </section>
+        </div>
+
+        <div class="help-panel" data-help-panel="comic" hidden>
+          <section class="help-section help-quick-start">
+            <h3>Comic Canvas quick start</h3>
+            <ol class="help-steps">
+              <li>Select media cards in the catalogue.</li>
+              <li>Click <strong>New canvas</strong> and give the page a name.</li>
+              <li>Click <strong>Add selected</strong> to place the selected media on the comic page.</li>
+              <li>Click <strong>Open canvas</strong> to edit the page.</li>
+            </ol>
+          </section>
+
+          <section class="help-section">
+            <h3>Panels and selection</h3>
+            <p>Drag a panel to move it. Drag on empty canvas space to draw a selection box. Ctrl/Cmd-click adds or removes individual panels or bubbles from a multi-selection.</p>
+            <p><strong>Fit</strong> shows the whole image inside the panel. <strong>Fill</strong> fills the panel and may crop the image. For a Fill panel, <strong>Shift-drag</strong> pans the crop and <strong>Shift-wheel</strong> zooms it. <strong>Front</strong> and <strong>Back</strong> change stacking order; <strong>Remove panel</strong> removes it from the canvas only.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Panel borders and custom shapes</h3>
+            <p>Select a panel to reveal its border controls. You can change stroke width/color, use separate widths for individual sides, or enable <strong>Shape corners</strong>. When Shape corners is enabled, drag the four corner points to make diagonal, trapezoid or irregular comic panels. Reset controls restore the normal rectangle/border.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Speech and thought bubbles</h3>
+            <p>Click <strong>Add bubble</strong> to create a bubble. Drag the bubble to move it and double-click it to edit its text. Select a bubble to show its controls. <strong>Tail type</strong> switches between Speech and Thought, while <strong>Bubble</strong> cycles through Oval, Cloud, Burst and Gear shapes.</p>
+            <p>For speech bubbles, drag the blue tail target to aim the tail at the speaker. Thought bubbles use a chain of thought dots. The detailed controls adjust tail width, curve, offsets, dot shape and other visual properties.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Secondary bubbles and bridges</h3>
+            <p>A selected speech/thought bubble can have attached secondary bubbles. Use the secondary controls to add or edit their text. Bridge/merge controls can visually connect the main and secondary shapes for multi-part dialogue or linked thoughts.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Guides and editing precision</h3>
+            <p><strong>Hide guides</strong> hides selection outlines/handles for a cleaner page preview without deleting anything. Ctrl-click can extend canvas selection. When panel shape points are active, selecting two corner points and dragging one can move the pair together.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Saving and moving a comic page</h3>
+            <p>Canvas data is stored as organizer data in the extension. Use <strong>Export JSON</strong> to make a portable backup of a canvas. Organizer Export also includes canvases. Importing organizer/canvas JSON restores the editable structure rather than flattening it into one image.</p>
+            <p class="help-note"><strong>Storyboard note:</strong> the Storyboard toolbar is intentionally hidden in this build. Existing storyboard data and the underlying logic remain preserved.</p>
+          </section>
+        </div>
+
+        <div class="help-panel" data-help-panel="privacy" hidden>
+          <section class="help-section">
+            <h3>No developer API key</h3>
+            <p>AI Media Manager does <strong>not</strong> require an OpenAI or xAI developer API key. It works with the normal ChatGPT and Grok websites through the browser session in which you are already signed in.</p>
+            <p>This is why clicking Connect may need a normal ChatGPT/Grok tab: the extension uses the same signed-in web-session requests that the official page can make.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Passwords</h3>
+            <p>The extension does <strong>not ask you to enter, save or share your ChatGPT/Grok password</strong>. Sign-in remains on the official source website and is handled by the browser/site. If you are signed out, Connect cannot retrieve private history until you sign in normally.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Where organizer data is kept</h3>
+            <p>Catalogue metadata, collections, ratings, canvases and settings are kept in Chrome extension storage on the current browser profile. Local Files are indexed from folders you explicitly choose. AI Media Manager is not a separate cloud account and does not require an extra account of its own.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>What network access is used for</h3>
+            <p>The extension needs permission to access supported ChatGPT/Grok pages and their media hosts so it can read history metadata, load thumbnails/previews and download the media you request. Those source requests still go to the source services and their media hosts.</p>
+            <p>Local organizer actions such as collections and ratings do not need to be published back to ChatGPT or Grok.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Clearing data safely</h3>
+            <p>Clearing extension data does not delete the original media from ChatGPT, Grok or your local folders. However, the red <strong>Clear cache</strong> action also clears local organizer information such as collections and ratings, so export organizer data first if you want a backup.</p>
+          </section>
+
+          <section class="help-section">
+            <h3>Practical safety note</h3>
+            <p>No browser extension should be described as completely risk-free. Install AI Media Manager only from a copy you trust and review Chrome's requested permissions when installing it. The extension is designed so you do not need to provide API keys or passwords to use its normal catalogue features.</p>
+          </section>
+        </div>
+      </div>
+      <div class="help-dialog-footer">
+        <span>Press Esc or click outside the window to close.</span>
+        <button id="closeHelpFooter" class="primary" type="button">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="mediaContextMenu" class="media-context-menu" hidden></div>
+  <div id="mediaContextSubmenu" class="media-context-menu media-context-submenu" hidden></div>
+  <script src="viewer.js"></script>
+</body>
+</html>
